@@ -1,0 +1,178 @@
+## A continuación relaciono los códigos de los modelos diseñados.
+
+## Importar Librerias
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans, AgglomerativeClustering
+from sklearn import metrics
+from scipy.cluster.hierarchy import dendrogram, linkage
+from sklearn.metrics import silhouette_score
+from scipy.cluster.hierarchy import cophenet
+from scipy.spatial.distance import pdist
+import warnings
+warnings.filterwarnings('ignore')
+
+## Importar los datos desde la ruta de mi pc.
+
+datos = pd.read_csv('C:/Users/admin.jjvelez/Documents/Base/Mall_Customers.csv')
+datos.head(200)
+
+##Identificación de datos faltantes y atipicos
+plt.figure(figsize=(6, 3))
+sns.boxplot(x=datos['Annual Income (k$)'])
+plt.title('Identificación de datos faltantes y atipicos',fontsize=10)
+
+## Revisión de datos faltantes
+print("Cantidad de registros con cero en Edad: ",datos['Age'].isin([0]).sum())
+print("Cantidad de registros con cero en Salario: ",datos['Annual Income (k$)'].isin([0]).sum())
+print("Cantidad de registros con cero en Salario: ",datos['Spending Score (1-100)'].isin([0]).sum())
+
+## Remplazar todos los ceros con el valor medio (Promedio) de la columna
+datos['Annual Income (k$)']=datos['Annual Income (k$)'].replace(0,datos['Annual Income (k$)'].mean())
+
+##Identificación de datos atipicos Spending Score (1-100)
+plt.figure(figsize=(6, 3))
+sns.boxplot(x=datos['Spending Score (1-100)'])
+plt.title('Identificación de datos atipicos Spending Score (1-100)',fontsize=10)
+
+##Identificación de datos atipicos Age
+plt.figure(figsize=(6, 3))
+sns.boxplot(x=datos['Age'])
+plt.title('Identificación de datos atipicos Age',fontsize=10)
+
+
+## Conteo de datos atipicos
+nivel_minimo=0
+nivel_maximo=100
+Total_Atipicos=((datos['Annual Income (k$)']<nivel_minimo)|(datos['Annual Income (k$)']>nivel_maximo)).sum()
+print("El total de datos atipicos en el salario anual es {}".format(Total_Atipicos))
+nivel_minimo=0
+nivel_maximo=100
+Total_Atipicos=((datos['Spending Score (1-100)']<nivel_minimo)|(datos['Spending Score (1-100)']>nivel_maximo)).sum()
+print("El total de datos atipicos en el datacredito es {}".format(Total_Atipicos))
+nivel_minimo=18
+nivel_maximo=100
+Total_Atipicos=((datos['Age']<nivel_minimo)|(datos['Age']>nivel_maximo)).sum()
+print("El total de datos atipicos en la edad es {}".format(Total_Atipicos))  
+
+
+## Revisión del tipo de datos y datos faltantes
+datos.info()
+
+
+#Caracteristicas de interes para el agrupamiento
+#Salario 
+#Puntaje de Data Crédito
+#Edad
+
+#Filtrar columnas del modelo
+datos=datos[["Age" , "Annual Income (k$)" , "Spending Score (1-100)"]]
+
+
+#Revisión de los datos de las variables objetivo
+datos.head(10)
+
+
+## Grafica antes del agrupamiento
+plt.scatter(datos['Annual Income (k$)'], datos['Spending Score (1-100)'])
+plt.xlabel('Annual Income (k$)')
+plt.ylabel('Spending Score (1-100)')
+plt.title('Grupo de Personas')
+plt.show()
+
+#Grafica de codo para identificar valor de K
+
+
+Nc = range(1 , 15)
+Kmeans = [KMeans(n_clusters=i) for i in Nc]
+Kmeans
+score =[Kmeans[i].fit(datos).score(datos) for i in range(len(Kmeans))]
+score
+plt.plot(Nc, score, marker ='2')
+plt.xlabel('Número de Clusters')
+plt.ylabel('Score')
+plt.title('Grafica de Codo')
+plt.show()
+
+## importando libreria de make_blobs
+from sklearn.datasets import make_blobs
+
+
+#Modelo de agrupamiento K=8 ( 8 GRUPOS)
+modelo = KMeans(n_clusters=8, random_state=0)
+modelo.fit(datos)
+
+#Agregar columna del grupo a la base para identificar el número de grupo del agrupamiento
+modelo.labels_
+datos["Grupo"]=modelo.labels_
+print(datos)
+
+
+#Modelo con métricas como Coeficiente de Silhouette, Índice de Calinski-Harabasz
+
+#Metrica de la columna grupo
+Observaciones = len(datos)
+X=datos.drop('Grupo', axis=1)
+clusters = datos ['Grupo']
+
+
+from sklearn.metrics import calinski_harabasz_score, davies_bouldin_score
+
+#Calculando metricas
+sil_score = silhouette_score(X, clusters)
+calinski_score = calinski_harabasz_score(X, clusters)
+davies_score = davies_bouldin_score(X, clusters)
+
+#Tabla para mostrar los valores de las metricas
+
+table_data = [
+    ["Número de Observaciones", Observaciones],
+    ["Coeficiente Silhouette", sil_score],
+    ["Indice Calinski Harabasz", calinski_score],
+    ["Indice Davies Bouldin", davies_score]
+] 
+
+#Imprimiendo la tabla
+
+
+from tabulate import tabulate
+print (tabulate(table_data, headers=["Metric","Value"],tablefmt='pretty'))
+
+
+#Graficas del grupos de personas datacredito vs sueldo anual
+plt.scatter(datos['Annual Income (k$)'], datos['Spending Score (1-100)'], c=datos['Grupo'],cmap='viridis')
+plt.xlabel('Annual Income (k$)')
+plt.ylabel('Spending Score (1-100)')
+plt.title('Grupo de Personas')
+plt.show()
+
+
+## Importando plotly.express para grafico 3D
+import plotly.express as px
+
+
+## Modelo en 3D con un K=8
+
+Grafica_3D = px.scatter_3d(datos, 
+    x='Annual Income (k$)', 
+    y='Spending Score (1-100)', 
+    z='Age', 
+    color='Grupo', 
+    symbol='Grupo', 
+    symbol_map={0: 'circle', 1: 'circle', 2: 'circle', 3: 'circle', 4: 'circle', 5: 'circle'}, 
+    opacity=0.7, 
+    width=900, 
+    height=850, 
+    title=f'Modelo de K-Means con un K= {8}', 
+    labels={'label': 'cluster'}, 
+    color_discrete_map={}
+)
+Grafica_3D.update_layout(showlegend=False)
+
+
+
+
+
